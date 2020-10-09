@@ -4,7 +4,6 @@ import br.com.wellingtonmacedo.testsworkshop.config.Loggable;
 import br.com.wellingtonmacedo.testsworkshop.events.Event;
 import br.com.wellingtonmacedo.testsworkshop.events.UserRegisteredEvent;
 import br.com.wellingtonmacedo.testsworkshop.exception.ValidationException;
-import br.com.wellingtonmacedo.testsworkshop.repository.EventRepository;
 import br.com.wellingtonmacedo.testsworkshop.telemetry.UserTelemetry;
 import br.com.wellingtonmacedo.testsworkshop.validator.ErrorCause;
 import br.com.wellingtonmacedo.testsworkshop.validator.DataValidator;
@@ -28,13 +27,17 @@ public class UserService implements Loggable {
 
     private final UserRepository userRepository;
     private final UserTelemetry userTelemetry;
-    private final EventRepository eventRepository;
+    private final EventService eventService;
 
     @Autowired
-    public UserService(UserRepository userRepository, UserTelemetry userTelemetry, EventRepository eventRepository) {
+    public UserService(UserRepository userRepository, UserTelemetry userTelemetry, EventService eventService) {
         this.userRepository = userRepository;
         this.userTelemetry = userTelemetry;
-        this.eventRepository = eventRepository;
+        this.eventService = eventService;
+    }
+
+    public Optional<UserEntity> getById(Long id) {
+        return userRepository.findById(id);
     }
 
     public UserEntity save(UserEntity user) {
@@ -46,7 +49,7 @@ public class UserService implements Loggable {
 
     private void saveEvent(Event event) {
         try {
-            eventRepository.publish(event);
+            eventService.publish(event);
         } catch (Exception e) {
             userTelemetry.errorToSaveEvent(event, e);
         }
@@ -60,22 +63,18 @@ public class UserService implements Loggable {
             .email(userEntity.getEmail())
             .address(userEntity.getAddress())
             .validate();
-        Optional<ErrorCause> cpfError = validateUniqueCPF(userEntity.getCpf());
+        Optional<ErrorCause> cpfError = validateUniqueCpf(userEntity.getCpf());
         cpfError.ifPresent(errorCauses::add);
         if (!errorCauses.isEmpty()) {
             throw new ValidationException(errorCauses);
         }
     }
 
-    private Optional<ErrorCause> validateUniqueCPF(String cpf) {
+    private Optional<ErrorCause> validateUniqueCpf(String cpf) {
         if (userRepository.existsByCpf(cpf)) {
             return Optional.of(new ErrorCause("cpf", VALUE_ALREADY_REGISTERED));
         }
         return Optional.empty();
-    }
-
-    public Optional<UserEntity> getById(Long id) {
-        return userRepository.findById(id);
     }
 
     @Data
@@ -91,6 +90,7 @@ public class UserService implements Loggable {
         private LocalDate birthDate;
 
         @CPF
+        @NotNull
         private String cpf;
 
         @Email
