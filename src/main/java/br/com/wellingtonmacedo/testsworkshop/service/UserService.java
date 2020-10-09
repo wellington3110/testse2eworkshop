@@ -1,6 +1,11 @@
 package br.com.wellingtonmacedo.testsworkshop.service;
 
+import br.com.wellingtonmacedo.testsworkshop.config.Loggable;
+import br.com.wellingtonmacedo.testsworkshop.events.Event;
+import br.com.wellingtonmacedo.testsworkshop.events.UserRegisteredEvent;
 import br.com.wellingtonmacedo.testsworkshop.exception.ValidationException;
+import br.com.wellingtonmacedo.testsworkshop.repository.EventRepository;
+import br.com.wellingtonmacedo.testsworkshop.telemetry.UserTelemetry;
 import br.com.wellingtonmacedo.testsworkshop.validator.ErrorCause;
 import br.com.wellingtonmacedo.testsworkshop.validator.DataValidator;
 import br.com.wellingtonmacedo.testsworkshop.entity.UserEntity;
@@ -19,18 +24,32 @@ import java.util.Optional;
 import static br.com.wellingtonmacedo.testsworkshop.exception.ValidationException.VALUE_ALREADY_REGISTERED;
 
 @Service
-public class UserService {
+public class UserService implements Loggable {
 
     private final UserRepository userRepository;
+    private final UserTelemetry userTelemetry;
+    private final EventRepository eventRepository;
 
     @Autowired
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, UserTelemetry userTelemetry, EventRepository eventRepository) {
         this.userRepository = userRepository;
+        this.userTelemetry = userTelemetry;
+        this.eventRepository = eventRepository;
     }
 
-    public UserEntity save(UserEntity userEntity) {
-        validate(userEntity);
-        return userRepository.save(userEntity);
+    public UserEntity save(UserEntity user) {
+        validate(user);
+        UserEntity savedUser = userRepository.save(user);
+        saveEvent(UserRegisteredEvent.from(savedUser));
+        return savedUser;
+    }
+
+    private void saveEvent(Event event) {
+        try {
+            eventRepository.publish(event);
+        } catch (Exception e) {
+            userTelemetry.errorToSaveEvent(event, e);
+        }
     }
 
     private void validate(UserEntity userEntity) {
@@ -60,7 +79,7 @@ public class UserService {
     }
 
     @Data
-    @Accessors(fluent = true, chain = true)
+    @Accessors(fluent = true)
     private static class UserValidator extends DataValidator {
 
         @NotBlank
