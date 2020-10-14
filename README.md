@@ -1,6 +1,6 @@
 # Tests E2E Workshop
 
-Projeto de exemplo utilizando no workshop sobre testes E2E. A apresentação pode ser vista clicando [aqui]().
+Projeto de exemplo utilizando no workshop sobre testes E2E. A apresentação pode ser vista clicando [aqui](https://wellington3110.github.io/testse2eworkshop-presentation/).
 
 ## Tecnologias utilizadas
 
